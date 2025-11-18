@@ -1,18 +1,33 @@
 import express from "express";
+import cookieParser from "cookie-parser";
+import session from "express-session";
 
 const host = "localhost";
 const port = 3000;
 
 const app = express();
+
+app.use(session({
+  secret:"Minh4Ch4v3S3cr3t4",
+  resave: true,
+  saveUninitialized: true,
+  cookie:{
+    maxAge: 1000*60*15
+  }
+}))
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-let listaUsuarios = [];
+let listaProdutos = [];
 
-let logado = false;
 
 
 // Rota do index
-app.get("/", (req, res) => {
+app.get("/",verificaUser, (req, res) => {
+  let ultimo = req.cookies?.ultimo;
+  const data = new Date();
+  res.cookie("ultimo",data.toLocaleString());
+  res.setHeader("Content-type","text/html");
   let index = `
     <html lang="pt-br">
       <head>
@@ -27,37 +42,36 @@ app.get("/", (req, res) => {
                   <div class="collapse navbar-collapse">
                       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                           <li class="nav-item">
-                              <a class="nav-link" href="/cadastroFornecedor">Cadastrar Fornecedores</a>
+                              <a class="nav-link" href="/cadastroProduto">Cadastrar Produtos</a>
                           </li>
                           <li class="nav-item">
-                              <a class="nav-link" href="/listaUsuarios">Listar Fornecedores</a>
-                          </li>`
-            if(!logado){
-              index += `<li class="nav-item">
-                              <a class="nav-link" href="/login" ">Logar</a>
-                          </li>`
-            }
-            else{
-              index += `<li class="nav-item">
-                              <a class="nav-link" href="/sair" >Sair</a>
-                          </li>`
-            }
-                          
-            index += `
+                              <a class="nav-link" href="/listaProduto">Listar Produtos</a>
+                          </li>
+                          <li class="nav-item">
+                              <a class="nav-link" href="/login">Logar</a>
+                          </li>
                       </ul>
                   </div>
+              </div>
+              <div class="container-fluid">
+                <div class="d-flex">
+                  <div class="p-2">
+                    <p>Ultimo Acesso: ${ultimo || "Nenhum acesso"}</p>
+                  </div>
+                </div>
               </div>
           </nav>
       </body>
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
     </html>
-  `; 
+  `;
 
+  
   res.send(index);
 });
 
 // Rota do Cadastro
-app.get("/cadastroFornecedor", (req, res) => {
+app.get("/cadastroProduto",verificaUser, (req, res) => {
   let cadastro = `
     <html lang="pt-br">
       <head>
@@ -72,105 +86,58 @@ app.get("/cadastroFornecedor", (req, res) => {
                   <div class="collapse navbar-collapse">
                       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                           <li class="nav-item">
-                              <a class="nav-link" href="/cadastroFornecedor">Cadastrar Fornecedores</a>
+                              <a class="nav-link" href="/cadastroProduto">Cadastrar Produtos</a>
                           </li>
                           <li class="nav-item">
-                              <a class="nav-link" href="/listaUsuarios">Listar Fornecedores</a>
-                          </li>`
-            if(!logado){
-              cadastro += `<li class="nav-item">
-                              <a class="nav-link" href="/login" ">Logar</a>
-                          </li>`
-            }
-            else{
-              cadastro += `<li class="nav-item">
-                              <a class="nav-link" href="/sair" >Sair</a>
-                          </li>`
-            }
-                          
-            cadastro += `
+                              <a class="nav-link" href="/listaProduto">Listar Produtos</a>
+                          </li>
+                          <li class="nav-item">
+                              <a class="nav-link" href="/login">Logar</a>
+                          </li>
                       </ul>
                   </div>
               </div>
-          </nav> 
+          </nav>
           <div class="container w-75 mb-5 mt-5">
-              <form method="POST" action="/cadastroFornecedor" class="row g-3 border p-3 rounded shadow-sm">
+              <form method="POST" action="/cadastroProduto" class="row g-3 border p-3 rounded shadow-sm">
                   <fieldset>
-                      <legend class="text-center">Cadastro de Usuários</legend>
+                      <legend class="text-center">Cadastro de Produtos</legend>
                   </fieldset>
 
                   <div class="col-md-4">
-                      <label class="form-label">CNPJ</label>
-                      <input type="text" class="form-control" name="cnpj" >
+                      <label class="form-label">Código de Barras</label>
+                      <input type="text" class="form-control" name="cod" >
                   </div>
 
                   <div class="col-md-4">
-                      <label class="form-label">Razão Social</label>
-                      <input type="text" class="form-control" name="social" >
+                      <label class="form-label">Descrição do Produto</label>
+                      <input type="text" class="form-control" name="desc" >
                   </div>
 
                   <div class="col-md-4">
-                      <label class="form-label">Nome Fantasia</label>
-                      <input type="text" class="form-control" name="fantasia" >
+                      <label class="form-label">Preço de Custo</label>
+                      <input type="number" class="form-control" name="preco_custo" >
                   </div>
 
                   <div class="col-md-4">
-                      <label class="form-label">Endereço</label>
-                      <input type="text" class="form-control" name="endereco" >
-                  </div>
-
-                  <div class="col-md-6">
-                      <label class="form-label">Cidade</label>
-                      <input type="text" class="form-control" name="cidade">
+                      <label class="form-label">Preço de Venda</label>
+                      <input type="number" class="form-control" name="preco_vendas" >
                   </div>
 
                   <div class="col-md-3">
-                      <label class="form-label">UF</label>
-                      <select class="form-select" name="estado">
-                          <option value="">Selecione</option>
-                          <option>AC</option>
-                          <option>AL</option>
-                          <option>AP</option>
-                          <option>AM</option>
-                          <option>BA</option>
-                          <option>CE</option>
-                          <option>DF</option>
-                          <option>ES</option>
-                          <option>GO</option>
-                          <option>MA</option>
-                          <option>MT</option>
-                          <option>MS</option>
-                          <option>MG</option>
-                          <option>PA</option>
-                          <option>PB</option>
-                          <option>PR</option>
-                          <option>PE</option>
-                          <option>PI</option>
-                          <option>RJ</option>
-                          <option>RN</option>
-                          <option>RS</option>
-                          <option>RO</option>
-                          <option>RR</option>
-                          <option>SC</option>
-                          <option>SP</option>
-                          <option>SE</option>
-                          <option>TO</option>
-                      </select>
-                  </div>
-
-                  <div class="col-md-3">
-                      <label class="form-label">CEP</label>
-                      <input type="text" class="form-control" name="cep" >
-                  </div>
-
-                  <div class="col-md-3">
-                      <label class="form-label">Email</label>
-                      <input type="email" class="form-control" name="email" >
+                      <label class="form-label">Data de Validade</label>
+                      <input type="date" class="form-control" name="data" >
                   </div>
 
                   <div class="col-md-4">
-                      <label class="form-label">Telefone</label>
-                      <input type="text" class="form-control" name="tel" >
+                      <label class="form-label">Quantidade em Estoque</label>
+                      <input type="number" class="form-control" name="quant" >
+                  </div>
+
+
+                  <div class="col-md-4">
+                      <label class="form-label">Nome do Fabricante</label>
+                      <input type="text" class="form-control" name="nome" >
                   </div>
 
                   <div class="col-12">
@@ -188,17 +155,18 @@ app.get("/cadastroFornecedor", (req, res) => {
 });
 
 // Post do Cadastro
-app.post("/cadastroFornecedor", (req, res) => {
-  const { cnpj, social, fantasia, endereco, cidade, estado, cep, email, tel } = req.body;
+app.post("/cadastroProduto",verificaUser, (req, res) => {
+  const { cod, desc, preco_custo, preco_vendas, data, quant, nome } = req.body;
 
-  if (cnpj && social && fantasia && endereco && cidade && estado && cep && email && tel) {
-    listaUsuarios.push({ cnpj, social, fantasia, endereco, cidade, estado, cep, email, tel });
+  if (cod && desc && preco_custo && preco_vendas && data && quant && nome) {
+    listaProdutos.push({ cod, desc, preco_custo, preco_vendas, data, quant, nome });
+    res.redirect("/listaProduto");
   } 
   else {
     let devolve = `<html lang="pt-br">
       <head>
           <meta charset="UTF-8">
-          <title>Cadastro de Usuários</title>
+          <title>Cadastro de Produtos</title>
           <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet">
       </head>
       <body>
@@ -208,165 +176,97 @@ app.post("/cadastroFornecedor", (req, res) => {
                   <div class="collapse navbar-collapse">
                       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                           <li class="nav-item">
-                              <a class="nav-link" href="/cadastroFornecedor">Cadastrar Fornecedores</a>
+                              <a class="nav-link" href="/cadastroProduto">Cadastrar Produtos</a>
                           </li>
                           <li class="nav-item">
-                              <a class="nav-link" href="/listaUsuarios">Listar Fornecedores</a>
+                              <a class="nav-link" href="/listaProduto">Listar Produtos</a>
                           </li>
-                          `;
-            if(!logado){
-              devolve += `<li class="nav-item">
-                              <a class="nav-link" href="/login" ">Logar</a>
-                          </li>`;
-            }
-            else{
-              devolve += `<li class="nav-item">
-                              <a class="nav-link" href="/sair" >Sair</a>
-                          </li>`;
-            }
-                          
-            devolve += `
+                          <li class="nav-item">
+                              <a class="nav-link" href="/login">Logar</a>
+                          </li>
                       </ul>
                   </div>
               </div>
           </nav>
           <div class="container w-75 mb-5 mt-5">
-              <form method="POST" action="/cadastroFornecedor" class="row g-3 border p-3 rounded shadow-sm">
+              <form method="POST" action="/cadastroProduto" class="row g-3 border p-3 rounded shadow-sm">
                   <fieldset>
                       <legend class="text-center">Cadastro de Usuários</legend>
                   </fieldset>
 
-                  <div class="col-md-4">
-                      <label class="form-label">CNPJ</label>
-                      <input type="text" class="form-control" name="cnpj" value="${cnpj}">
+                   <div class="col-md-4">
+                      <label class="form-label">Código de Barras</label>
+                      <input type="text" class="form-control" name="cod" value="${cod}">
                   `;
-          if(!cnpj){
+          if(!cod){
             devolve += `<div>
-                          <p>Por favor, informe o CNPJ do fornecedor</p>
+                          <p>Por favor, informe o Código do produto</p>
                         </div>`;
           }
            devolve += `
            </div>
-                  <div class="col-md-4">
-                      <label class="form-label">Razão Social</label>
-                      <input type="text" class="form-control" name="social" value="${social}">
-                  
+                   <div class="col-md-4">
+                      <label class="form-label">Descrição do Produto</label>
+                      <input type="text" class="form-control" name="desc" value="${desc}">
           `;
-          if(!social){
+          if(!desc){
             devolve += `<div>
-                          <p>Por favor, informe a Razão Social do fornecedor</p>
-                        </div>`;
-          }
-           devolve += `
-                </div>
-                  <div class="col-md-4">
-                      <label class="form-label">Nome Fantasia</label>
-                      <input type="text" class="form-control" name="fantasia" value="${fantasia}">
-                  `;
-
-          if(!fantasia){
-            devolve += `<div>
-                          <p>Por favor, informe o Nome Fantasia do fornecedor</p>
+                          <p>Por favor, informe a Descrição do pedido</p>
                         </div>`;
           }
            devolve += `
            </div>
                   <div class="col-md-4">
-                      <label class="form-label">Endereço</label>
-                      <input type="text" class="form-control" name="endereco" value="${endereco}" >
+                      <label class="form-label">Preço de Custo</label>
+                      <input type="number" class="form-control" name="preco_custo" value="${preco_custo}" >
                   `;
-
-          if(!endereco){
+          if(!preco_custo){
             devolve += `<div>
-                          <p>Por favor, informe o endereço do fornecedor</p>
+                          <p>Por favor, informe o preço de custo do produto</p>
                         </div>`;
           }
            devolve += `
             </div>
-                  <div class="col-md-6">
-                      <label class="form-label">Cidade</label>
-                      <input type="text" class="form-control" name="cidade" value="${cidade}">
+                  <div class="col-md-4">
+                      <label class="form-label">Preço de Venda</label>
+                      <input type="number" class="form-control" name="preco_vendas" value="${preco_vendas}">
                   `;
-          if(!cidade){
+          if(!preco_vendas){
             devolve += `<div>
-                          <p>Por favor, informe cidade do fornecedor</p>
+                          <p>Por favor, informe o preço de venda do produto</p>
                         </div>`;
           }
            devolve += `
            
             </div>
-                  <div class="col-md-3">
-                      <label class="form-label">UF</label>
-                      <select class="form-select" name="estado" value="${estado}">
-                          <option value="">Selecione</option>
-                          <option>AC</option>
-                          <option>AL</option>
-                          <option>AP</option>
-                          <option>AM</option>
-                          <option>BA</option>
-                          <option>CE</option>
-                          <option>DF</option>
-                          <option>ES</option>
-                          <option>GO</option>
-                          <option>MA</option>
-                          <option>MT</option>
-                          <option>MS</option>
-                          <option>MG</option>
-                          <option>PA</option>
-                          <option>PB</option>
-                          <option>PR</option>
-                          <option>PE</option>
-                          <option>PI</option>
-                          <option>RJ</option>
-                          <option>RN</option>
-                          <option>RS</option>
-                          <option>RO</option>
-                          <option>RR</option>
-                          <option>SC</option>
-                          <option>SP</option>
-                          <option>SE</option>
-                          <option>TO</option>
-                      </select>
+                 <div class="col-md-3">
+                      <label class="form-label">Data de Validade</label>
+                      <input type="date" class="form-control" name="data" value="${data}">
                   `;
-          if(!estado){
+          if(!data){
             devolve += `<div>
-                          <p>Por favor, informe o estado do fornecedor</p>
+                          <p>Por favor, informe a data de validade do produto</p>
                         </div>`;
           }
            devolve += `
             </div>
-                  <div class="col-md-3">
-                      <label class="form-label">CEP</label>
-                      <input type="text" class="form-control" name="cep" value="${cep}">
+                   <div class="col-md-4">
+                      <label class="form-label">Quantidade em Estoque</label>
+                      <input type="number" class="form-control" name="quant" value="${quant}">
                   `;
-          if(!cep){
+          if(!quant){
             devolve += `<div>
-                          <p>Por favor, informe o CEP do fornecedor</p>
-                        </div>`;
-          }
-           devolve += `
-            </div>
-                  <div class="col-md-3">
-                      <label class="form-label">Email</label>
-                      <input type="email" class="form-control" name="email" value="${email}">
-                  `;
-          if(!email){
-            devolve += `<div>
-                          <p>Por favor, informe o email do fornecedor</p>
+                          <p>Por favor, informe a quantidade no estoque deste produto</p>
                         </div>`;
           }
            devolve += `
             </div>
                   <div class="col-md-4">
-                      <label class="form-label">Telefone</label>
-                      <input type="text" class="form-control" name="tel" value="${tel}">
+                      <label class="form-label">Nome do Fabricante</label>
+                      <input type="text" class="form-control" name="nome" value="${nome}">
                   `;
-          if(!tel){
-            devolve += `<div>
-                          <p>Por favor, informe o telefone do fornecedor</p>
-                        </div>`;
-          }
-           devolve += `
+          if(!nome){
+            devolve += `
                 </div>
                   <div class="col-12">
                       <button class="btn btn-primary" type="submit">Cadastrar Usuário</button>
@@ -378,12 +278,16 @@ app.post("/cadastroFornecedor", (req, res) => {
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
     </html>`;
 
-    res.send(devolve)
+    res.send(devolve);
   }
-});
+}});
 
 // Rota do list
-app.get("/listaUsuarios", (req, res) => {
+app.get("/listaProduto",verificaUser, (req, res) => {
+  let ultimo = req.cookies?.ultimo;
+  const data = new Date();
+  res.cookie("ultimo",data.toLocaleString());
+  res.setHeader("Content-type","text/html");
   let conteudo = `
     <html lang="pt-br">
       <head>
@@ -398,25 +302,23 @@ app.get("/listaUsuarios", (req, res) => {
                   <div class="collapse navbar-collapse">
                       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                           <li class="nav-item">
-                              <a class="nav-link" href="/cadastroFornecedor">Cadastrar Fornecedores</a>
+                              <a class="nav-link" href="/cadastroProduto">Cadastrar Produtos</a>
                           </li>
                           <li class="nav-item">
-                              <a class="nav-link" href="/listaUsuarios">Listar Fornecedores</a>
-                          </li>`
-            if(!logado){
-              conteudo += `<li class="nav-item">
-                              <a class="nav-link" href="/login" ">Logar</a>
-                          </li>`
-            }
-            else{
-              conteudo += `<li class="nav-item">
-                              <a class="nav-link" href="/sair" >Sair</a>
-                          </li>`
-            }
-                          
-            conteudo += `
+                              <a class="nav-link" href="/listaProduto">Listar Produtos</a>
+                          </li>
+                          <li class="nav-item">
+                              <a class="nav-link" href="/login">Logar</a>
+                          </li>
                       </ul>
                   </div>
+              </div>
+              <div class="container-fluid">
+                <div class="d-flex">
+                  <div class="p-2">
+                    <p>Ultimo Acesso: ${ultimo || "Nenhum acesso"}</p>
+                  </div>
+                </div>
               </div>
           </nav>
           <div class="container w-75 mb-5 mt-5">
@@ -424,38 +326,34 @@ app.get("/listaUsuarios", (req, res) => {
               <table class="table table-striped table-hover">
                   <thead>
                       <tr>
-                          <th>CNPJ</th>
-                          <th>Razão Social</th>
-                          <th>Nome Fantasia</th>
-                          <th>Endereço</th>
-                          <th>Cidade</th>
-                          <th>UF</th>
-                          <th>CEP</th>
-                          <th>Email</th>
-                          <th>Telefone</th>
+                          <th>Código de Barra</th>
+                          <th>Descrição</th>
+                          <th>Preço de Custo</th>
+                          <th>Preço de Vendas</th>
+                          <th>Data de Validade</th>
+                          <th>Quantidade em Estoque</th>
+                          <th>Nome do Fabricante</th>
                       </tr>
                   </thead>
                   <tbody>`;
 
-  for (let usuario of listaUsuarios) {
+  for (let produtos of listaProdutos) {
     conteudo += `
       <tr>
-          <td>${usuario.cnpj}</td>
-          <td>${usuario.social}</td>
-          <td>${usuario.fantasia}</td>
-          <td>${usuario.endereco}</td>
-          <td>${usuario.cidade}</td>
-          <td>${usuario.estado}</td>
-          <td>${usuario.cep}</td>
-          <td>${usuario.email}</td>
-          <td>${usuario.tel}</td>
+          <td>${produtos.cod}</td>
+          <td>${produtos.desc}</td>
+          <td>${produtos.preco_custo}</td>
+          <td>${produtos.preco_vendas}</td>
+          <td>${produtos.data}</td>
+          <td>${produtos.quant}</td>
+          <td>${produtos.nome}</td>
       </tr>`;
   }
 
   conteudo += `
                   </tbody>
               </table>
-              <a class="btn btn-secondary" href="/cadastroFornecedor">Cadastrar novo usuário</a>
+              <a class="btn btn-secondary" href="/cadastroProduto">Cadastrar novo Produto</a>
           </div>
       </body>
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
@@ -479,23 +377,14 @@ app.get("/login", (req, res) => {
                   <div class="collapse navbar-collapse">
                       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                           <li class="nav-item">
-                              <a class="nav-link" href="/cadastroFornecedor">Cadastrar Fornecedores</a>
+                              <a class="nav-link" href="/cadastroProduto">Cadastrar Produtos</a>
                           </li>
                           <li class="nav-item">
-                              <a class="nav-link" href="/listaUsuarios">Listar Fornecedores</a>
-                          </li>`
-            if(!logado){
-              login += `<li class="nav-item">
-                              <a class="nav-link" href="/login" ">Logar</a>
-                          </li>`
-            }
-            else{
-              login += `<li class="nav-item">
-                              <a class="nav-link" href="/sair" >Sair</a>
-                          </li>`
-            }
-                          
-            login += `
+                              <a class="nav-link" href="/listaProduto">Listar Produtos</a>
+                          </li>
+                          <li class="nav-item">
+                              <a class="nav-link" href="/login">Logar</a>
+                          </li>
                       </ul>
                   </div>
               </div>
@@ -535,7 +424,10 @@ app.post("/login", (req, res) => {
   const { user, senha} = req.body;
 
   if (user == "admin" && senha == "12345678") { 
-    logado = true;
+    req.session.DadosLogin = {
+      logado:true,
+      nomeUser: "Adiminstrador"
+    };
     res.redirect("/");
   } 
   else {
@@ -553,23 +445,14 @@ app.post("/login", (req, res) => {
                   <div class="collapse navbar-collapse">
                       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                           <li class="nav-item">
-                              <a class="nav-link" href="/cadastroFornecedor">Cadastrar Fornecedores</a>
+                              <a class="nav-link" href="/cadastroProduto">Cadastrar Produtos</a>
                           </li>
                           <li class="nav-item">
-                              <a class="nav-link" href="/listaUsuarios">Listar Fornecedores</a>
-                          </li>`
-            if(!logado){
-              erro += `<li class="nav-item">
-                              <a class="nav-link" href="/login" ">Logar</a>
-                          </li>`
-            }
-            else{
-              erro += `<li class="nav-item">
-                              <a class="nav-link" href="/sair" >Sair</a>
-                          </li>`
-            }
-                          
-            erro += `
+                              <a class="nav-link" href="/listaProduto">Listar Produtos</a>
+                          </li>
+                          <li class="nav-item">
+                              <a class="nav-link" href="/login">Logar</a>
+                          </li>
                       </ul>
                   </div>
               </div>
@@ -604,7 +487,6 @@ app.post("/login", (req, res) => {
                         <label class="form-label">Senha</label>
                         <input type="password" class="form-control" name="senha" >
                     `;
-
             if(senha != "12345678"){
               erro += `<div>
                           <p>senha Incorreta</p>
@@ -632,15 +514,18 @@ app.post("/login", (req, res) => {
   }
 });
 
-//Rota da Saida
+function verificaUser(req, res, next){
+  if(req.session?.DadosLogin?.logado){
+    next();
+  }
+  else{
+    res.redirect("/login");
+  }
+}
+
 app.get("/sair", (req, res) => {
-  logado = false;
-  res.send(`
-    <script>
-      alert("Logout efetuado com sucesso!");
-      window.location.href = "/";
-    </script>
-  `);
+  req.session.destroy();
+  res.redirect("/login");
 });
 
 // Inicializa o Servidor
